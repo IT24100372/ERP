@@ -1,0 +1,426 @@
+CREATE DATABASE IF NOT EXISTS resto_erp;
+USE resto_erp;
+
+CREATE TABLE IF NOT EXISTS menu_items (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  image TEXT,
+  category VARCHAR(100) NOT NULL,
+  is_available TINYINT(1) NOT NULL DEFAULT 1,
+  preparation_time INT NOT NULL,
+  ingredients JSON,
+  variants JSON,
+  add_ons JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id VARCHAR(64) PRIMARY KEY,
+  customer_name VARCHAR(255) NOT NULL,
+  order_type ENUM('dine-in', 'takeaway', 'delivery') NOT NULL,
+  items JSON NOT NULL,
+  total DECIMAL(10,2) NOT NULL,
+  status ENUM('pending', 'preparing', 'ready', 'completed', 'cancelled') NOT NULL,
+  table_number INT NULL,
+  delivery_address TEXT NULL,
+  kitchen_ticket_sent_at DATETIME NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  quantity DECIMAL(10,2) NOT NULL,
+  unit VARCHAR(32) NOT NULL,
+  min_stock DECIMAL(10,2) NOT NULL,
+  max_stock DECIMAL(10,2) NOT NULL,
+  reorder_point DECIMAL(10,2) NOT NULL,
+  supplier VARCHAR(255) NULL,
+  last_restocked DATETIME NULL,
+  cost_per_unit DECIMAL(10,2) NOT NULL,
+  purchase_history JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS inventory_usage_logs (
+  id VARCHAR(64) PRIMARY KEY,
+  item_id VARCHAR(64) NOT NULL,
+  item_name VARCHAR(255) NOT NULL,
+  quantity_used DECIMAL(10,2) NOT NULL,
+  unit VARCHAR(32) NOT NULL,
+  order_id VARCHAR(64) NOT NULL,
+  timestamp DATETIME NOT NULL,
+  INDEX idx_inventory_usage_time (timestamp)
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id VARCHAR(64) PRIMARY KEY,
+  order_id VARCHAR(64) NOT NULL,
+  customer_name VARCHAR(255) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  tax DECIMAL(10,2) NOT NULL,
+  total DECIMAL(10,2) NOT NULL,
+  vat_rate DECIMAL(5,2) NULL,
+  service_charge_rate DECIMAL(5,2) NULL,
+  discount_rate DECIMAL(5,2) NULL,
+  discount_amount DECIMAL(10,2) NULL,
+  service_charge_amount DECIMAL(10,2) NULL,
+  receipt_number VARCHAR(64) NULL,
+  receipt_type ENUM('print', 'digital') NULL,
+  status ENUM('paid', 'pending', 'overdue') NOT NULL,
+  created_at DATETIME NOT NULL,
+  paid_at DATETIME NULL,
+  payment_method ENUM('cash', 'card', 'online') NULL,
+  INDEX idx_invoice_status (status),
+  INDEX idx_invoice_paid_at (paid_at)
+);
+
+CREATE TABLE IF NOT EXISTS chart_of_accounts (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  account_type ENUM('asset', 'liability', 'equity', 'revenue', 'expense') NOT NULL,
+  parent_id BIGINT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  entry_date DATE NOT NULL,
+  reference_no VARCHAR(100) NULL,
+  memo TEXT NULL,
+  lines JSON NOT NULL,
+  total_debit DECIMAL(12,2) NOT NULL,
+  total_credit DECIMAL(12,2) NOT NULL,
+  status ENUM('draft', 'posted', 'reversed') NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ap_invoices (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  supplier_id VARCHAR(64) NULL,
+  supplier_name VARCHAR(255) NOT NULL,
+  invoice_no VARCHAR(100) NOT NULL,
+  invoice_date DATE NOT NULL,
+  due_date DATE NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  status ENUM('open', 'partially_paid', 'paid', 'overdue') NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ar_invoices (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  customer_id VARCHAR(64) NULL,
+  customer_name VARCHAR(255) NOT NULL,
+  invoice_no VARCHAR(100) NOT NULL,
+  invoice_date DATE NOT NULL,
+  due_date DATE NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  received_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  status ENUM('open', 'partially_paid', 'paid', 'overdue') NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  account_name VARCHAR(255) NOT NULL,
+  bank_name VARCHAR(255) NOT NULL,
+  account_number VARCHAR(100) NOT NULL,
+  currency_code VARCHAR(10) NOT NULL,
+  opening_balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+  current_balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  bank_account_id BIGINT NOT NULL,
+  txn_date DATE NOT NULL,
+  txn_type ENUM('credit', 'debit') NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  reference_no VARCHAR(100) NULL,
+  description TEXT NULL,
+  reconciled TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_bank_txn_account_date (bank_account_id, txn_date)
+);
+
+CREATE TABLE IF NOT EXISTS budgets (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  fiscal_year INT NOT NULL,
+  period VARCHAR(32) NOT NULL,
+  department VARCHAR(100) NOT NULL,
+  budget_amount DECIMAL(12,2) NOT NULL,
+  actual_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  variance_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tax_filings (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tax_type VARCHAR(50) NOT NULL,
+  filing_period VARCHAR(50) NOT NULL,
+  filing_date DATE NULL,
+  tax_amount DECIMAL(12,2) NOT NULL,
+  status ENUM('draft', 'filed', 'paid') NOT NULL DEFAULT 'draft',
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS crm_customers (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  customer_code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  address TEXT NULL,
+  credit_limit DECIMAL(12,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS crm_leads (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  lead_source VARCHAR(100) NULL,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  status ENUM('new', 'contacted', 'qualified', 'lost', 'converted') NOT NULL DEFAULT 'new',
+  owner VARCHAR(100) NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS crm_opportunities (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  customer_id BIGINT NULL,
+  title VARCHAR(255) NOT NULL,
+  stage ENUM('prospecting', 'proposal', 'negotiation', 'won', 'lost') NOT NULL DEFAULT 'prospecting',
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  expected_close_date DATE NULL,
+  owner VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sales_orders (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  order_no VARCHAR(100) NOT NULL,
+  customer_id BIGINT NULL,
+  customer_name VARCHAR(255) NOT NULL,
+  order_date DATE NOT NULL,
+  status ENUM('draft', 'confirmed', 'fulfilled', 'cancelled') NOT NULL DEFAULT 'draft',
+  pricing JSON NULL,
+  line_items JSON NOT NULL,
+  total_amount DECIMAL(12,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pos_transactions (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  txn_no VARCHAR(100) NOT NULL,
+  txn_date DATETIME NOT NULL,
+  cashier VARCHAR(100) NULL,
+  items JSON NOT NULL,
+  subtotal DECIMAL(12,2) NOT NULL,
+  tax DECIMAL(12,2) NOT NULL DEFAULT 0,
+  discount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total DECIMAL(12,2) NOT NULL,
+  payment_method VARCHAR(50) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS suppliers (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  supplier_code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  contact_person VARCHAR(255) NULL,
+  email VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  address TEXT NULL,
+  performance_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  po_no VARCHAR(100) NOT NULL,
+  supplier_id BIGINT NULL,
+  supplier_name VARCHAR(255) NOT NULL,
+  po_date DATE NOT NULL,
+  status ENUM('draft', 'approved', 'received', 'closed', 'cancelled') NOT NULL DEFAULT 'draft',
+  items JSON NOT NULL,
+  total_amount DECIMAL(12,2) NOT NULL,
+  approval_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS goods_receipts (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  grn_no VARCHAR(100) NOT NULL,
+  po_id BIGINT NULL,
+  receipt_date DATE NOT NULL,
+  received_by VARCHAR(100) NULL,
+  items JSON NOT NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS warehouses (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  branch_code VARCHAR(50) NULL,
+  address TEXT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS warehouse_locations (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  warehouse_id BIGINT NOT NULL,
+  location_code VARCHAR(100) NOT NULL,
+  location_name VARCHAR(255) NULL,
+  is_picking_area TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  movement_date DATETIME NOT NULL,
+  movement_type ENUM('in', 'out', 'transfer', 'adjustment', 'write_off') NOT NULL,
+  item_code VARCHAR(100) NOT NULL,
+  quantity DECIMAL(12,2) NOT NULL,
+  from_location_id BIGINT NULL,
+  to_location_id BIGINT NULL,
+  reference_no VARCHAR(100) NULL,
+  reason TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS financial_report_runs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  report_type ENUM('pnl', 'balance_sheet', 'cash_flow') NOT NULL,
+  period_from DATE NOT NULL,
+  period_to DATE NOT NULL,
+  payload JSON NULL,
+  created_by VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS operational_kpis (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  kpi_name VARCHAR(100) NOT NULL,
+  kpi_value DECIMAL(14,4) NOT NULL,
+  unit VARCHAR(50) NULL,
+  snapshot_date DATE NOT NULL,
+  module_name VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS custom_reports (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  report_name VARCHAR(255) NOT NULL,
+  query_definition JSON NOT NULL,
+  export_format ENUM('csv', 'xlsx', 'pdf', 'json') NOT NULL DEFAULT 'csv',
+  created_by VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app_users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NULL,
+  branch_code VARCHAR(50) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS app_roles (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  role_code VARCHAR(50) NOT NULL UNIQUE,
+  role_name VARCHAR(100) NOT NULL,
+  permissions JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_role_assignments (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  role_id BIGINT NOT NULL,
+  assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS approval_workflows (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  module_name VARCHAR(100) NOT NULL,
+  workflow_name VARCHAR(255) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  steps JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  event_time DATETIME NOT NULL,
+  user_name VARCHAR(100) NULL,
+  module_name VARCHAR(100) NOT NULL,
+  entity_name VARCHAR(100) NOT NULL,
+  entity_id VARCHAR(100) NULL,
+  action VARCHAR(50) NOT NULL,
+  before_data JSON NULL,
+  after_data JSON NULL,
+  ip_address VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS branches (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  branch_code VARCHAR(50) NOT NULL UNIQUE,
+  branch_name VARCHAR(255) NOT NULL,
+  address TEXT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS currencies (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  currency_code VARCHAR(10) NOT NULL UNIQUE,
+  currency_name VARCHAR(50) NOT NULL,
+  symbol VARCHAR(10) NULL,
+  is_base_currency TINYINT(1) NOT NULL DEFAULT 0,
+  exchange_rate DECIMAL(16,6) NOT NULL DEFAULT 1,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
