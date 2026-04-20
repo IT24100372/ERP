@@ -75,6 +75,26 @@
   * {
     @apply border-border;
   }
+
+  *,
+  *::before,
+  *::after {
+    min-width: 0;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+
   body {
     @apply text-foreground;
     font-family: 'Plus Jakarta Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

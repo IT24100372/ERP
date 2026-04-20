@@ -113,7 +113,7 @@ export function StatCard({
         transition: { duration: 0.3 }
       }}
       className={cn(
-        "bg-white rounded-2xl p-6 border border-gray-100 relative overflow-hidden group",
+        "bg-white rounded-2xl p-4 sm:p-6 border border-gray-100 relative overflow-hidden group",
         large && "row-span-2"
       )}
     >
@@ -125,12 +125,12 @@ export function StatCard({
 
       <div className="relative z-10">
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
           <div className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
+            "w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
             colors.bg
           )}>
-            <Icon className={cn("w-6 h-6", colors.text)} />
+            <Icon className={cn("w-5 h-5 sm:w-6 sm:h-6", colors.text)} />
           </div>
           
           {change !== undefined && (
@@ -150,7 +150,7 @@ export function StatCard({
         {/* Value */}
         <div className={cn(
           "font-bold text-[#151515] tracking-tight",
-          large ? "text-4xl mb-2" : "text-3xl mb-1"
+          large ? "text-3xl sm:text-4xl mb-2" : "text-2xl sm:text-3xl mb-1"
         )}>
           <AnimatedNumber value={value} prefix={prefix} suffix={suffix} />
         </div>

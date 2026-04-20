@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -9,6 +8,7 @@ import {
   Receipt, 
   ChevronLeft,
   ChevronRight,
+  X,
   LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,10 @@ interface SidebarProps {
   allowedPages: PageId[];
   currentRole: 'admin' | 'kitchen' | 'cashier' | 'inventory' | 'manager';
   onLogout: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 const menuItems: Array<{ id: PageId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -40,23 +44,50 @@ const roleLabels = {
   manager: 'Manager',
 } as const;
 
-export function Sidebar({ activePage, onPageChange, allowedPages, currentRole, onLogout }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function Sidebar({
+  activePage,
+  onPageChange,
+  allowedPages,
+  currentRole,
+  onLogout,
+  isOpen,
+  onClose,
+  collapsed,
+  onToggleCollapsed,
+}: SidebarProps) {
   const visibleMenuItems = menuItems.filter((item) => allowedPages.includes(item.id));
 
+  const handleNavigate = (page: PageId) => {
+    onPageChange(page);
+    onClose();
+  };
+
   return (
-    <motion.aside
-      initial={{ x: -100, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className={cn(
-        "fixed left-0 top-0 h-screen text-white z-50 flex flex-col transition-all duration-300 border-r border-slate-700/40",
-        "bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900/95",
-        collapsed ? "w-20" : "w-64"
-      )}
-    >
+    <>
+      {/* Mobile overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity md:hidden",
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <motion.aside
+        initial={{ x: -100, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className={cn(
+          "fixed left-0 top-0 h-svh md:h-screen text-white z-50 flex flex-col border-r border-slate-700/40",
+          "bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900/95",
+          "transform transition-transform duration-300 md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          collapsed ? "md:w-20" : "w-64"
+        )}
+      >
       {/* Logo */}
-      <div className="h-20 flex items-center justify-center border-b border-white/10 px-3">
+      <div className="h-16 sm:h-20 flex items-center justify-between border-b border-white/10 px-3">
         <motion.div 
           className="flex items-center gap-3"
           whileHover={{ scale: 1.05 }}
@@ -77,6 +108,16 @@ export function Sidebar({ activePage, onPageChange, allowedPages, currentRole, o
             </div>
           )}
         </motion.div>
+
+        {/* Close button (mobile only) */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 hover:bg-white/10 transition-colors"
+          aria-label="Close navigation menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -94,7 +135,7 @@ export function Sidebar({ activePage, onPageChange, allowedPages, currentRole, o
                 transition={{ delay: index * 0.1 + 0.3 }}
               >
                 <button
-                  onClick={() => onPageChange(item.id)}
+                  onClick={() => handleNavigate(item.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden",
                     isActive 
@@ -129,7 +170,10 @@ export function Sidebar({ activePage, onPageChange, allowedPages, currentRole, o
       {/* Bottom Actions */}
       <div className="p-3 border-t border-white/10 space-y-2">
         <button
-          onClick={onLogout}
+          onClick={() => {
+            onLogout();
+            onClose();
+          }}
           className={cn(
             "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-slate-300 hover:text-white hover:bg-white/8 border border-transparent hover:border-white/10",
             collapsed && "justify-center"
@@ -141,15 +185,16 @@ export function Sidebar({ activePage, onPageChange, allowedPages, currentRole, o
 
         {/* Collapse Toggle */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggleCollapsed}
           className={cn(
-            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5",
+            "hidden md:flex w-full items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5",
             collapsed && "justify-center"
           )}
         >
           {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>
       </div>
-    </motion.aside>
+      </motion.aside>
+    </>
   );
 }

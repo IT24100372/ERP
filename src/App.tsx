@@ -42,7 +42,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activePage, setActivePage] = useState<AppPage>('dashboard');
   const [currentRole, setCurrentRole] = useState<AppRole>('admin');
-  // Sidebar state can be added here when needed
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const allowedPages = useMemo(() => roleAccess[currentRole], [currentRole]);
 
@@ -86,12 +87,14 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setIsSidebarOpen(false);
   };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentRole('admin');
     setActivePage('dashboard');
+    setIsSidebarOpen(false);
   };
 
   if (!isAuthenticated) {
@@ -124,12 +127,16 @@ function App() {
         allowedPages={allowedPages}
         currentRole={currentRole}
         onLogout={handleLogout}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapsed={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
       {/* Main Content */}
       <div className={cn(
-        "flex-1 flex flex-col transition-all duration-300",
-        "ml-64" // Default sidebar width
+        "flex-1 flex flex-col min-w-0 transition-[margin] duration-300",
+        isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
       )}>
         {/* Header */}
         <Header 
@@ -139,10 +146,11 @@ function App() {
           roleLabel={roleLabels[currentRole]}
           onRoleChange={setCurrentRole}
           onLogout={handleLogout}
+          onToggleSidebar={() => setIsSidebarOpen(true)}
         />
 
         {/* Page Content */}
-        <main className="flex-1 p-6 md:p-8 overflow-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activePage}
